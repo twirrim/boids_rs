@@ -21,7 +21,7 @@ const MATCHING_FACTOR: f32 = 0.05;
 const CENTERING_FACTOR: f32 = 0.0005;
 const TURN_FACTOR: f32 = 0.2;
 const CELL_SIZE: f32 = VISIBLE_RANGE * 1.1;
-const FRAMES: usize = 1000;
+const FRAMES: usize = 15000;
 
 #[derive(Debug, Clone, PartialEq)]
 struct Boid {
@@ -38,6 +38,18 @@ fn get_random_colour() -> Rgb<u8> {
     let mut rng = rand::rng();
     let hue = rng.random_range(0.0..360.0);
     let hsl = Hsl::from(hue, 100.0, 50.0);
+    let rgb = hsl.to_rgb();
+    Rgb([
+        rgb.get_red() as u8,
+        rgb.get_green() as u8,
+        rgb.get_blue() as u8,
+    ])
+}
+
+fn get_colour_by_width(x: f32) -> Rgb<u8> {
+    let width = WIDTH as f32;
+    let h_per = 360.0 / width;
+    let hsl = Hsl::from(h_per * x, 100.0, 50.0);
     let rgb = hsl.to_rgb();
     Rgb([
         rgb.get_red() as u8,
@@ -189,14 +201,17 @@ fn main() {
     let mut rng = rand::rng();
     let mut boids: Vec<Boid> = (0..BOIDS)
         .into_iter()
-        .map(|id| Boid {
-            id,
-            x: rng.random_range(0..WIDTH) as f32,
-            y: rng.random_range(0..HEIGHT) as f32,
-            xv: rng.random_range(-MAX_SPEED / 2.0..MAX_SPEED / 2.0), // Initial velocity
-            yv: rng.random_range(-MAX_SPEED / 2.0..MAX_SPEED / 2.0),
-            current_speed: 0.0,
-            colour: get_random_colour(),
+        .map(|id| {
+            let x = rng.random_range(0..WIDTH) as f32;
+            Boid {
+                id,
+                x,
+                y: rng.random_range(0..HEIGHT) as f32,
+                xv: rng.random_range(-MAX_SPEED / 2.0..MAX_SPEED / 2.0), // Initial velocity
+                yv: rng.random_range(-MAX_SPEED / 2.0..MAX_SPEED / 2.0),
+                current_speed: 0.0,
+                colour: get_colour_by_width(x),
+            }
         })
         .collect();
     let mut running = true;
@@ -215,7 +230,7 @@ fn main() {
         for boid in &boids {
             img.put_pixel(boid.x as u32, boid.y as u32, boid.colour);
         }
-        img.save(format!("./frames/frames_{:0>8}.png", frame))
+        img.save(format!("/srv/boids/frames_{:0>8}.png", frame))
             .unwrap();
 
         frame += 1;
