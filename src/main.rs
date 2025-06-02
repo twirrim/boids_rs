@@ -54,6 +54,8 @@ const MATCHING_FACTOR: f32 = 0.05;
 const CENTERING_FACTOR: f32 = 0.0005;
 const TURN_FACTOR: f32 = 0.2;
 const CELL_SIZE: f32 = VISIBLE_RANGE * 1.1;
+const DRAW_RADIUS: i32 = 2; // Radius of the circle that represents a boid
+const DRAW_RADIUS_SQUARED: i32 = DRAW_RADIUS * DRAW_RADIUS; // Pre-calculate
 
 #[derive(Debug, Clone, PartialEq)]
 struct Boid {
@@ -254,6 +256,20 @@ fn main() {
         let grid = populate_grid(&boids);
         update_boids(&mut boids, grid, args.height, args.width);
         for boid in &boids {
+            // Rather than a single pixel, going to create a circle
+            let boid_x_int = boid.x.round() as i32;
+            let boid_y_int = boid.y.round() as i32;
+            for dy_offset in -DRAW_RADIUS..=DRAW_RADIUS {
+                for dx_offset in -DRAW_RADIUS..=DRAW_RADIUS {
+                    if (dx_offset * dx_offset + dy_offset * dy_offset) <= DRAW_RADIUS_SQUARED {
+                        let px = boid_x_int + dx_offset;
+                        let py = boid_y_int + dy_offset;
+                        if px >= 0 && px < args.width as i32 && py >= 0 && py < args.height as i32 {
+                            img.put_pixel(px as u32, py as u32, boid.colour);
+                        }
+                    }
+                }
+            }
             img.put_pixel(boid.x as u32, boid.y as u32, boid.colour);
         }
         img.save(format!("{}/frames_{:0>8}.png", args.dir, frame))
