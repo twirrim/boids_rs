@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use colors_transform::{Color, Hsl};
 use image::{Rgb, RgbImage};
 use indicatif::{ProgressBar, ProgressStyle};
 use rand::prelude::*;
@@ -15,14 +16,12 @@ const VISIBLE_RANGE: f32 = 20.0;
 const VISIBLE_RANGE_SQUARED: f32 = VISIBLE_RANGE * VISIBLE_RANGE;
 const PROTECTED_RANGE: f32 = 2.0;
 const PROTECTED_RANGE_SQUARED: f32 = PROTECTED_RANGE * PROTECTED_RANGE;
-const AVOID_FACTOR: f32 = 0.05;
+const AVOID_FACTOR: f32 = 0.10;
 const MATCHING_FACTOR: f32 = 0.05;
 const CENTERING_FACTOR: f32 = 0.0005;
 const TURN_FACTOR: f32 = 0.2;
 const CELL_SIZE: f32 = VISIBLE_RANGE * 1.1;
-const FRAMES: usize = 5000;
-
-const WHITE: Rgb<u8> = Rgb([255, 255, 255]);
+const FRAMES: usize = 1000;
 
 #[derive(Debug, Clone, PartialEq)]
 struct Boid {
@@ -32,6 +31,19 @@ struct Boid {
     xv: f32,
     yv: f32,
     current_speed: f32,
+    colour: Rgb<u8>,
+}
+
+fn get_random_colour() -> Rgb<u8> {
+    let mut rng = rand::rng();
+    let hue = rng.random_range(0.0..360.0);
+    let hsl = Hsl::from(hue, 100.0, 50.0);
+    let rgb = hsl.to_rgb();
+    Rgb([
+        rgb.get_red() as u8,
+        rgb.get_green() as u8,
+        rgb.get_blue() as u8,
+    ])
 }
 
 fn populate_grid(boids: &Vec<Boid>) -> HashMap<(u32, u32), Vec<usize>> {
@@ -184,6 +196,7 @@ fn main() {
             xv: rng.random_range(-MAX_SPEED / 2.0..MAX_SPEED / 2.0), // Initial velocity
             yv: rng.random_range(-MAX_SPEED / 2.0..MAX_SPEED / 2.0),
             current_speed: 0.0,
+            colour: get_random_colour(),
         })
         .collect();
     let mut running = true;
@@ -200,7 +213,7 @@ fn main() {
         let grid = populate_grid(&boids);
         update_boids(&mut boids, grid);
         for boid in &boids {
-            img.put_pixel(boid.x as u32, boid.y as u32, WHITE);
+            img.put_pixel(boid.x as u32, boid.y as u32, boid.colour);
         }
         img.save(format!("./frames/frames_{:0>8}.png", frame))
             .unwrap();
