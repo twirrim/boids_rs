@@ -1,17 +1,50 @@
 use std::collections::HashMap;
+use std::path::Path;
 
+use argh::FromArgs;
 use colors_transform::{Color, Hsl};
 use image::{Rgb, RgbImage};
 use indicatif::{ProgressBar, ProgressStyle};
 use rand::prelude::*;
 use rayon::prelude::*;
 
+#[derive(Debug, FromArgs)]
+#[argh(help_triggers("-h", "--help", "help"), description = "Boids simulator")]
+struct Flags {
+    #[argh(
+        option,
+        description = "width of image, defaults 1920",
+        default = "1920"
+    )]
+    width: u32,
+    #[argh(
+        option,
+        description = "height of image, defaults 1080",
+        default = "1080"
+    )]
+    height: u32,
+    #[argh(
+        option,
+        description = "directory for images",
+        from_str_fn(valid_directory)
+    )]
+    dir: String,
+    #[argh(option, description = "frames to simulate", default = "1000")]
+    frames: usize,
+    #[argh(option, description = "boids to simulate", default = "10000")]
+    boids: usize,
+}
+
+fn valid_directory(dir: &str) -> Result<String, String> {
+    if Path::new(dir).is_dir() {
+        return Ok(String::from(dir));
+    }
+    Err(String::from("Target directory not valid"))
+}
+
 const MAX_SPEED: f32 = 3.0;
 const MIN_SPEED: f32 = 0.5;
 const MARGIN: u32 = 10;
-const WIDTH: u32 = 1920;
-const HEIGHT: u32 = 1080;
-const BOIDS: usize = 100000;
 const VISIBLE_RANGE: f32 = 20.0;
 const VISIBLE_RANGE_SQUARED: f32 = VISIBLE_RANGE * VISIBLE_RANGE;
 const PROTECTED_RANGE: f32 = 2.0;
@@ -21,7 +54,6 @@ const MATCHING_FACTOR: f32 = 0.05;
 const CENTERING_FACTOR: f32 = 0.0005;
 const TURN_FACTOR: f32 = 0.2;
 const CELL_SIZE: f32 = VISIBLE_RANGE * 1.1;
-const FRAMES: usize = 15000;
 
 #[derive(Debug, Clone, PartialEq)]
 struct Boid {
@@ -34,20 +66,8 @@ struct Boid {
     colour: Rgb<u8>,
 }
 
-fn get_random_colour() -> Rgb<u8> {
-    let mut rng = rand::rng();
-    let hue = rng.random_range(0.0..360.0);
-    let hsl = Hsl::from(hue, 100.0, 50.0);
-    let rgb = hsl.to_rgb();
-    Rgb([
-        rgb.get_red() as u8,
-        rgb.get_green() as u8,
-        rgb.get_blue() as u8,
-    ])
-}
-
-fn get_colour_by_width(x: f32) -> Rgb<u8> {
-    let width = WIDTH as f32;
+fn get_colour_by_width(x: f32, width: u32) -> Rgb<u8> {
+    let width = width as f32;
     let h_per = 360.0 / width;
     let hsl = Hsl::from(h_per * x, 100.0, 50.0);
     let rgb = hsl.to_rgb();
@@ -68,7 +88,12 @@ fn populate_grid(boids: &Vec<Boid>) -> HashMap<(u32, u32), Vec<usize>> {
     grid
 }
 
-fn update_boids(boids: &mut Vec<Boid>, grid: HashMap<(u32, u32), Vec<usize>>) {
+fn update_boids(
+    boids: &mut Vec<Boid>,
+    grid: HashMap<(u32, u32), Vec<usize>>,
+    height: u32,
+    width: u32,
+) {
     // For rust, we'll need to gather all the changes, then apply
     let new_boid_states: Vec<(f32, f32, f32, f32, f32)> = boids
         .par_iter()
@@ -138,10 +163,10 @@ fn update_boids(boids: &mut Vec<Boid>, grid: HashMap<(u32, u32), Vec<usize>>) {
             next_yv += close_dy * AVOID_FACTOR;
 
             // Turn if approaching the edge of the screen
-            if boid.y > (HEIGHT - MARGIN) as f32 {
+            if boid.y > (height - MARGIN) as f32 {
                 next_yv -= TURN_FACTOR;
             }
-            if boid.x > (WIDTH - MARGIN) as f32 {
+            if boid.x > (width - MARGIN) as f32 {
                 next_xv -= TURN_FACTOR;
             }
             if boid.x < MARGIN as f32 {
@@ -176,11 +201,11 @@ fn update_boids(boids: &mut Vec<Boid>, grid: HashMap<(u32, u32), Vec<usize>>) {
             let mut next_x = boid.x + next_xv;
             let mut next_y = boid.y + next_yv;
             // Finally, clamp them so they're in the screen
-            if next_x as u32 >= WIDTH {
-                next_x = (WIDTH - 1) as f32;
+            if next_x as u32 >= width {
+                next_x = (width - 1) as f32;
             }
-            if next_y as u32 >= HEIGHT {
-                next_y = (HEIGHT - 1) as f32;
+            if next_y as u32 >= height {
+                next_y = (height - 1) as f32;
             }
             return (next_x, next_y, next_xv, next_yv, speed);
         })
@@ -198,25 +223,26 @@ fn update_boids(boids: &mut Vec<Boid>, grid: HashMap<(u32, u32), Vec<usize>>) {
 }
 
 fn main() {
+    let args: Flags = argh::from_env();
     let mut rng = rand::rng();
-    let mut boids: Vec<Boid> = (0..BOIDS)
+    let mut boids: Vec<Boid> = (0..args.boids)
         .into_iter()
         .map(|id| {
-            let x = rng.random_range(0..WIDTH) as f32;
+            let x = rng.random_range(0..args.width) as f32;
             Boid {
                 id,
                 x,
-                y: rng.random_range(0..HEIGHT) as f32,
+                y: rng.random_range(0..args.height) as f32,
                 xv: rng.random_range(-MAX_SPEED / 2.0..MAX_SPEED / 2.0), // Initial velocity
                 yv: rng.random_range(-MAX_SPEED / 2.0..MAX_SPEED / 2.0),
                 current_speed: 0.0,
-                colour: get_colour_by_width(x),
+                colour: get_colour_by_width(x, args.width),
             }
         })
         .collect();
     let mut running = true;
     let mut frame = 0;
-    let pbar = ProgressBar::new(FRAMES as u64);
+    let pbar = ProgressBar::new(args.frames as u64);
     pbar.set_style(
         ProgressStyle::with_template(
             "[{elapsed_precise}/{eta_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
@@ -224,18 +250,18 @@ fn main() {
         .unwrap(),
     );
     while running {
-        let mut img = RgbImage::new(WIDTH, HEIGHT);
+        let mut img = RgbImage::new(args.width, args.height);
         let grid = populate_grid(&boids);
-        update_boids(&mut boids, grid);
+        update_boids(&mut boids, grid, args.height, args.width);
         for boid in &boids {
             img.put_pixel(boid.x as u32, boid.y as u32, boid.colour);
         }
-        img.save(format!("/srv/boids/frames_{:0>8}.png", frame))
+        img.save(format!("{}/frames_{:0>8}.png", args.dir, frame))
             .unwrap();
 
         frame += 1;
         pbar.inc(1);
-        if frame > FRAMES {
+        if frame > args.frames {
             running = false;
         }
     }
