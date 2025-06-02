@@ -58,3 +58,6 @@ tags
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/rust,visualstudiocode,vim
+
+# Usual location for generated content
+frames/
