@@ -71,7 +71,6 @@ fn main() {
     let args: Flags = argh::from_env();
     let mut rng = rand::rng();
     let mut boids: Vec<Boid> = (0..args.boids)
-        .into_iter()
         .map(|id| {
             let x = rng.random_range(0..args.width) as f32;
             Boid::new(

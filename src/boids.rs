@@ -42,7 +42,7 @@ pub fn populate_grid(boids: &Vec<Boid>, cell_size: f32) -> HashMap<(u32, u32), V
     for (index, boid) in boids.iter().enumerate() {
         let cell_x: u32 = (boid.x / cell_size).floor() as u32;
         let cell_y: u32 = (boid.y / cell_size).floor() as u32;
-        grid.entry((cell_x, cell_y)).or_insert(vec![]).push(index);
+        grid.entry((cell_x, cell_y)).or_default().push(index);
     }
     grid
 }
@@ -119,10 +119,10 @@ pub fn update_boids(
             let mut next_xv = boid.xv;
             let mut next_yv = boid.yv;
             if neighboring_boids > 0 {
-                xpos_avg = xpos_avg / neighboring_boids as f32;
-                ypos_avg = ypos_avg / neighboring_boids as f32;
-                xvel_avg = xvel_avg / neighboring_boids as f32;
-                yvel_avg = yvel_avg / neighboring_boids as f32;
+                xpos_avg /= neighboring_boids as f32;
+                ypos_avg /= neighboring_boids as f32;
+                xvel_avg /= neighboring_boids as f32;
+                yvel_avg /= neighboring_boids as f32;
 
                 next_xv +=
                     (xpos_avg - boid.x) * centering_factor + (xvel_avg - boid.xv) * matching_factor;
@@ -178,7 +178,7 @@ pub fn update_boids(
             if next_y as u32 >= height {
                 next_y = (height - 1) as f32;
             }
-            return (next_x, next_y, next_xv, next_yv, speed);
+            (next_x, next_y, next_xv, next_yv, speed)
         })
         .collect();
 
