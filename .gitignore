@@ -61,3 +61,5 @@ tags
 
 # Usual location for generated content
 frames/
+# Where I'll keep a boids pre-seed data
+preseed/
