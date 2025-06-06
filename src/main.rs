@@ -5,10 +5,11 @@ use argh::FromArgs;
 use colors_transform::{Color, Hsl};
 use image::{Rgb, RgbImage};
 use indicatif::{ProgressBar, ProgressStyle};
+use nalgebra::Vector2;
 use rand::prelude::*;
 
+use boids::boids::{update_boids, Boid};
 use boids::Parameters;
-use boids::boids::{Boid, update_boids};
 
 #[derive(Debug, FromArgs)]
 #[argh(help_triggers("-h", "--help", "help"), description = "Boids simulator")]
@@ -99,10 +100,11 @@ fn main() {
                 let x = rng.random_range(0..args.width) as f32;
                 Boid::new(
                     id,
-                    x,
-                    rng.random_range(0..args.height) as f32,
-                    rng.random_range(-parameters.max_speed / 2.0..parameters.max_speed / 2.0),
-                    rng.random_range(-parameters.max_speed / 2.0..parameters.max_speed / 2.0),
+                    Vector2::new(x, rng.random_range(0..args.height) as f32),
+                    Vector2::new(
+                        rng.random_range(-parameters.max_speed / 2.0..parameters.max_speed / 2.0),
+                        rng.random_range(-parameters.max_speed / 2.0..parameters.max_speed / 2.0),
+                    ),
                     0.0,
                     get_colour_by_width(x, args.width),
                 )
@@ -128,8 +130,8 @@ fn main() {
         update_boids(&mut boids, args.height, args.width, parameters);
         for boid in &boids {
             // Rather than a single pixel, going to create a circle
-            let boid_x_int = boid.x.round() as i32;
-            let boid_y_int = boid.y.round() as i32;
+            let boid_x_int = boid.pos.x.round() as i32;
+            let boid_y_int = boid.pos.y.round() as i32;
             for dy_offset in -parameters.draw_radius..=parameters.draw_radius {
                 for dx_offset in -parameters.draw_radius..=parameters.draw_radius {
                     if (dx_offset * dx_offset + dy_offset * dy_offset)
@@ -143,7 +145,7 @@ fn main() {
                     }
                 }
             }
-            img.put_pixel(boid.x as u32, boid.y as u32, boid.colour);
+            img.put_pixel(boid.pos.x as u32, boid.pos.y as u32, boid.colour);
         }
         img.save(format!("{}/frames_{:0>8}.png", args.dir, frame))
             .unwrap();
